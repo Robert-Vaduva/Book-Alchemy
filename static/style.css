@@ -1,0 +1,55 @@
+body {
+  background: #F5F5F0;
+  color: black;
+  font-family: Monaco;
+}
+
+.list-books-title {
+  padding: 10px 0;
+  background: #009B50;
+  color: white;
+  text-align: center;
+  font-size: 16pt;
+}
+
+.book-grid {
+  list-style-type: none;
+  padding: 0;
+  margin: 20px auto;
+  display: flex;
+  flex-wrap: wrap;         /* allow wrapping */
+  justify-content: center; /* center items */
+  gap: 20px;               /* space between items */
+  max-width: 1200px;       /* optional: limit max page width */
+}
+
+.book-grid li {
+  padding: 0;              /* let gap handle spacing */
+  text-align: center;
+  flex: 0 1 160px;         /* responsive item width */
+}
+
+.book {
+  width: 140px;
+}
+
+.book-title,
+.book-author {
+  font-size: 0.8em;
+  text-align: center;
+}
+
+.book-title {
+  margin-top: 10px;
+}
+
+.book-author {
+  color: #999;
+}
+
+
+.book-poster {
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
+    width: 128px;
+    height: 193px;
+}
