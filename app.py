@@ -4,9 +4,11 @@ from flask_sqlalchemy import SQLAlchemy
 from data_models import db, Author, Book
 from flask import Flask, render_template, request, redirect, url_for, flash
 
+
 basedir = os.path.abspath(os.path.dirname(__file__))
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{os.path.join(basedir, 'data/library.sqlite')}"
+app.secret_key = "mysecretkey"
 db.init_app(app)
 initial_books = [
     {
@@ -92,18 +94,28 @@ initial_books = [
 
 @app.route('/', methods=['GET'])
 def home():
-    sort_by = request.args.get('sort_by', 'title')  # default sort by title
+    search_query = request.args.get('q', '')  # get the search query from URL
+    sort_by = request.args.get('sort_by', 'title')
 
+    books_query = Book.query.join(Book.author)  # join author for searching
+
+    if search_query:
+        # filter books by title or author name
+        books_query = books_query.filter(
+            (Book.title.ilike(f"%{search_query}%")) |
+            (Author.name.ilike(f"%{search_query}%"))
+        )
+
+    # Apply sorting
     if sort_by == 'title':
-        books = Book.query.order_by(Book.title).all()
+        books_query = books_query.order_by(Book.title)
     elif sort_by == 'author':
-        books = Book.query.join(Book.author).order_by(Author.name).all()
+        books_query = books_query.order_by(Author.name)
     elif sort_by == 'year':
-        books = Book.query.order_by(Book.publication_year).all()
-    else:
-        books = Book.query.all()
+        books_query = books_query.order_by(Book.publication_year)
 
-    return render_template('home.html', books=books, sort_by=sort_by)
+    books = books_query.all()
+    return render_template('home.html', books=books, sort_by=sort_by, search_query=search_query)
 
 
 @app.route('/add_author', methods=['GET', 'POST'])
@@ -122,9 +134,11 @@ def add_author():
 @app.route('/add_book', methods=['GET', 'POST'])
 def add_book():
     if request.method == 'POST':
-        new_book = Book(isbn=request.form.get('isbn'),
+        isbn = request.form.get('isbn')
+        new_book = Book(isbn=isbn,
                         title=request.form.get('title'),
                         publication_year=request.form.get('publication_year'),
+                        cover_url=f"https://covers.openlibrary.org/b/isbn/{isbn}-M.jpg",
                         author_id=request.form.get('author_id'))
         db.session.add(new_book)
         db.session.commit()
@@ -133,10 +147,27 @@ def add_book():
     return render_template('add_book.html')
 
 
+@app.route('/book/<int:book_id>/delete', methods=['POST'])
+def delete_book(book_id):
+    book = Book.query.get_or_404(book_id)
+    author = book.author  # keep a reference before deleting the book
+
+    db.session.delete(book)
+    db.session.commit()
+
+    # If the author has no more books, delete the author too
+    if author and not author.books:
+        db.session.delete(author)
+        db.session.commit()
+
+    flash(f"Book '{book.title}' was successfully deleted!", "success")
+    return redirect(url_for('home'))
+
+
 def init_db():
     # https://openlibrary.org/dev/docs/api/covers
     with app.app_context():
-        db.drop_all()
+        db.drop_all()  # enable for a fresh copy of the database
         db.create_all()
         for book in initial_books:
             author = Author(name=book['author']['name'],
