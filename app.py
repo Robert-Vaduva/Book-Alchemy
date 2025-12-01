@@ -10,6 +10,7 @@ import os
 from data_models import db, Author, Book
 from flask import Flask, render_template, request, redirect, url_for, flash
 from helpers.json.json_helper import read_json_data
+from sqlalchemy.exc import SQLAlchemyError
 
 
 basedir = os.path.abspath(os.path.dirname(__file__))
@@ -34,7 +35,6 @@ def home():
             (Book.title.ilike(f"%{search_query}%")) |
             (Author.name.ilike(f"%{search_query}%"))
         )
-
     # Apply sorting
     if sort_by == 'title':
         books_query = books_query.order_by(Book.title)
@@ -51,31 +51,47 @@ def home():
 def add_author():
     """Add a new author to the database via a form."""
     if request.method == 'POST':
-        new_author = Author(name=request.form.get('name'),
-                            birth_date=request.form.get('birth_date'),
-                            date_of_death=request.form.get('date_of_death'))
-        db.session.add(new_author)
-        db.session.commit()
-
-        return redirect(url_for('home'))
+        try:
+            author_name = request.form.get('name')
+            author = Author.query.filter(Author.name.ilike(f"%{author_name}%")).first()
+            if author:
+                flash(f"The author '{author_name}' already exists in the database!", "danger")
+            else:
+                new_author = Author(name=author_name,
+                                    birth_date=request.form.get('birth_date'),
+                                    date_of_death=request.form.get('date_of_death'))
+                db.session.add(new_author)
+                db.session.commit()
+                flash(f"Author '{author_name}' was successfully added!", "success")
+        except SQLAlchemyError as error:
+            print(f"Error while adding the requested author in the database: {error}")
+            db.session.rollback()
     return render_template('add_author.html')
 
 
 @app.route('/add_book', methods=['GET', 'POST'])
 def add_book():
     """Add a new book to the database via a form."""
+    authors = Author.query.all()
     if request.method == 'POST':
-        isbn = request.form.get('isbn')
-        new_book = Book(isbn=isbn,
-                        title=request.form.get('title'),
-                        publication_year=request.form.get('publication_year'),
-                        cover_url=f"https://covers.openlibrary.org/b/isbn/{isbn}-M.jpg",
-                        author_id=request.form.get('author_id'))
-        db.session.add(new_book)
-        db.session.commit()
-
-        return redirect(url_for('home'))
-    return render_template('add_book.html')
+        try:
+            isbn = request.form.get('isbn')
+            book = Book.query.filter(Book.isbn.ilike(f"%{isbn}%")).first()
+            if book:
+                flash(f"The book with ISBN: '{isbn}' already exists in the database!", "danger")
+            else:
+                new_book = Book(isbn=isbn,
+                                title=request.form.get('title'),
+                                publication_year=request.form.get('publication_year'),
+                                cover_url=f"https://covers.openlibrary.org/b/isbn/{isbn}-M.jpg",
+                                author_id=request.form.get('author_id'))
+                db.session.add(new_book)
+                db.session.commit()
+                flash(f"Book '{new_book.title}' was successfully added!", "success")
+        except SQLAlchemyError as error:
+            print(f"Error while adding the requested book in the database: {error}")
+            db.session.rollback()
+    return render_template('add_book.html', authors=authors)
 
 
 @app.route('/book/<int:book_id>/delete', methods=['POST'])
@@ -83,16 +99,13 @@ def delete_book(book_id):
     """Delete a book by ID and remove its author if they have no other books."""
     book = Book.query.get_or_404(book_id)
     author = book.author  # keep a reference before deleting the book
-
     db.session.delete(book)
     db.session.commit()
-
     # If the author has no more books, delete the author too
     if author and not author.books:
         db.session.delete(author)
         db.session.commit()
-
-    flash(f"Book '{book.title}' was successfully deleted!", "success")
+    flash(f"The book '{book.title}' was successfully deleted!", "success")
     return redirect(url_for('home'))
 
 
@@ -122,4 +135,4 @@ def init_db():
 
 if __name__ == "__main__":
     init_db()
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=False)

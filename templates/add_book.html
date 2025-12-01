@@ -1,27 +1,34 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-  </head>
-  <body>
+{% extends "base.html" %}
+{% block content %}
 
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="container mt-3">
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}<br>
+
+  <h2> Add Book </h2>
   <form action="/add_book" method="POST">
-  <label for="title">Book title:</label>
-  <input type="text" id="title" name="title" required><br><br>
-
-  <label for="isbn">ISBN:</label>
-  <input type="text" id="isbn" name="isbn" required><br><br>
-
-  <label for="publication_year">Publication year:</label>
-  <input type="date" id="publication_year" name="publication_year"><br><br>
-
-  <label for="author_id">Author ID:</label>
-  <input type="text" id="author_id" name="author_id"><br><br>
-
-  <input type="submit" value="Add Book">
+    <label for="title">Book title:</label>
+    <input type="text" id="title" name="title" required><br><br>
+    <label for="isbn">ISBN:</label>
+    <input type="text" id="isbn" name="isbn" required><br><br>
+    <label for="publication_year">Publication year:</label>
+    <input type="number" id="publication_year" name="publication_year" min="0" max="2100"><br><br>
+    <select name="author_id" class="dropdown form-select" style="margin-bottom: 10px; width: 250px;" required>
+      <option value="" disabled selected>Select author</option>
+      {% for author in authors %}
+      <option value="{{ author.id }}">{{ author.name }}</option>
+      {% endfor %}
+    </select>
+    <input type="submit" value="Add">
   </form>
 
-  </body>
-</html>
+{% endblock %}
